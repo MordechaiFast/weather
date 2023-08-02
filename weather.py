@@ -1,5 +1,9 @@
+from urllib import parse
 from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
+
+
+BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
 
 
 def parse_args() -> Namespace:
@@ -27,6 +31,14 @@ def _get_api_key() -> str:
     config.read('secrets.ini')
     return config['openweather']['api_key']
 
+def build_weather_query(city_input: list[str], fahrenheit = False) -> str:
+    """Builds the URL for an API request to OpenWeather's weather API."""
+    city_name = " ".join(city_input)
+    encoded_city_name = parse.quote_plus(city_name)
+    units = 'imperial' if fahrenheit else 'metric'
+    api_key = _get_api_key()
+    return f"{BASE_URL}?q={encoded_city_name}&units={units}&appid={api_key}"
 
 if __name__ == '__main__':
-    parse_args()
+    args = parse_args()
+    print(build_weather_query(args.city, args.F))
