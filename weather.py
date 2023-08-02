@@ -1,6 +1,7 @@
-from urllib import parse
 from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
+import json
+from urllib import parse, request
 
 
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
@@ -39,6 +40,14 @@ def build_weather_query(city_input: list[str], fahrenheit = False) -> str:
     api_key = _get_api_key()
     return f"{BASE_URL}?q={encoded_city_name}&units={units}&appid={api_key}"
 
+def get_weather_data(query_url: str) -> dict:
+    """Makes the API request."""
+    with request.urlopen(query_url) as response:
+        data = response.read()
+    return json.loads(data)
+
+
 if __name__ == '__main__':
     args = parse_args()
-    print(build_weather_query(args.city, args.F))
+    query_url = build_weather_query(args.city, args.F)
+    print(get_weather_data(query_url))
