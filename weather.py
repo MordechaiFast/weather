@@ -5,6 +5,7 @@ from configparser import ConfigParser
 from urllib import error, parse, request
 
 BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
+PADDING = 20
 
 
 def parse_args() -> Namespace:
@@ -63,7 +64,25 @@ def get_weather_data(query_url: str) -> dict:
         sys.exit("Couldn't read server response.")
 
 
+def display(weather_data: dict, fahrenheit=False) -> None:
+    """Displays the city name, current tempurature in either C or F, 
+    the min and max tempuratures, and the general weather description.
+    """
+    city = f"{weather_data['name']}, {weather_data['sys']['country']}:"
+    temp_current = weather_data['main']['temp']
+    weather_description = weather_data['weather'][0]['description']
+    temp_min = weather_data['main']['temp_min']
+    temp_max = weather_data['main']['temp_max']
+    deg = '°F' if fahrenheit else '°C'
+    print(f"{city:^{PADDING}} {temp_current:.0f}{deg}", end=' ')
+    print(weather_description.capitalize())
+    print(" "*PADDING, f"Low: {temp_min:.0f}{deg} High:{temp_max:.0f}{deg}")
+
+
+
+
 if __name__ == '__main__':
     args = parse_args()
     query_url = build_weather_query(args.city, args.F)
-    print(get_weather_data(query_url))
+    weather_data = get_weather_data(query_url)
+    display(weather_data, args.F)
