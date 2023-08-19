@@ -53,7 +53,7 @@ def get_weather_data(query_url: str) -> dict:
         with request.urlopen(query_url) as response:
             data = response.read()
     except error.HTTPError as http_error:
-        if   http_error.code == 401:  # Unauthorized
+        if http_error.code == 401:  # Unauthorized
             sys.exit("Access denied. Check API key.")
         elif http_error.code == 404:  # Not found
             sys.exit("No weather data for this city.")
@@ -62,41 +62,63 @@ def get_weather_data(query_url: str) -> dict:
     except error.URLError as url_error:
         sys.exit(url_error.reason)
     try:
-        return json.loads(data)
+        json_data = json.loads(data)
     except json.JSONDecodeError:
         sys.exit("Couldn't read server response.")
+    if json_data['sys']['country'] == 'PS':
+        json_data['sys']['country'] = 'IL'
+    return json_data
 
 
-def display(weather_data: dict, fahrenheit=False) -> None:
+def display(weather_data: dict, metric=True) -> None:
     """Displays the city name, current temperature in either C or F, 
-    the general weather description, lattitude and longitude, humidity, 
+    the general weather description, latitude and longitude, humidity, 
     cloud cover, the min and max temperatures, and the sunrise and 
     sunset times.
     """
-    city = f"{weather_data['name']}, {weather_data['sys']['country']}:"
-    temp_current = weather_data['main']['temp']
+    city = f"{weather_data['name']}, {weather_data['sys']['country']}"
     weather_description = weather_data['weather'][0]['description']
-    raw_lattitude = weather_data['coord']['lat']
-    raw_longitude = weather_data['coord']['lon']
-    longitude = long_str(raw_longitude)
-    lattitude = lat_str(raw_lattitude)
-    humidity = weather_data['main']['humidity']
-    clouds = weather_data['clouds']['all']
+
+    temp_current = weather_data['main']['temp']
     temp_min = weather_data['main']['temp_min']
     temp_max = weather_data['main']['temp_max']
-    deg = '°F' if fahrenheit else '°C'
+    feels_like = weather_data['main']['feels_like']
+    deg = '°C' if metric else '°F'
+
+    raw_latitude = weather_data['coord']['lat']
+    raw_longitude = weather_data['coord']['lon']
+    longitude = long_str(raw_longitude)
+    latitude = lat_str(raw_latitude)
+
+    raw_wind_speed = weather_data['wind']['speed']
+    wind_degrees = weather_data['wind']['deg']
+    raw_wind_gust = weather_data['wind'].get('gust')
+    wind_speed = speed_str(raw_wind_speed, metric)
+    direction = direction_str(wind_degrees)
+    gust_speed = speed_str(raw_wind_gust, metric) if raw_wind_gust else None
+    
+    humidity = weather_data['main']['humidity']
+    clouds = weather_data['clouds']['all']
+    pressure = weather_data['main']['pressure']
+    visibility = weather_data['visibility']
+
     sunrise_utc = weather_data['sys']['sunrise']
     sunset_utc = weather_data['sys']['sunset']
     timezone = weather_data['timezone']
     sunrise = local_time(sunrise_utc, timezone)
     sunset = local_time(sunset_utc, timezone)
 
-    print(f"{city:^{PADDING}} {temp_current:.0f}{deg}", end=' ')
-    print(weather_description.capitalize())
-    print(f"{lattitude + ' ' + longitude:^{PADDING}} {humidity}% humidity")
+    print(f"{city:^{PADDING}} {temp_current:.0f}{deg}",
+          weather_description.capitalize())
+    print(f"{latitude + ' ' + longitude:^{PADDING}} {humidity}% humidity")
+    print(" "*PADDING, f"Feels like: {feels_like:.0f}{deg}")
     print(" "*PADDING, f"{clouds}% cloud cover")
-    print(" "*PADDING, f"Low: {temp_min:.0f}{deg} High:{temp_max:.0f}{deg}")
-    print(f"Sunrise: {time12hr(sunrise)} Sunset: {time12hr(sunset)}")
+    print(f"Wind: {wind_speed} {direction}", 
+          f"Gusts: {gust_speed}" if gust_speed else "")
+    print(f"Temperature range: {temp_min:.0f}-{temp_max:.0f}{deg}",
+          f"Pressure: {pressure} mb")
+    print(f"Sunrise: {time12hr(sunrise)} Sunset: {time12hr(sunset)}",
+          f"Visibility: {visibility/1000:.0f}km")
 
 
 def long_str(longitude: float) -> str:
@@ -104,20 +126,75 @@ def long_str(longitude: float) -> str:
     with direction.
     """
     minutes = longitude % 1 * 60
-    return f"{abs(longitude):.0f}°{minutes:02.0f}'{'E' if longitude > 0 else 'W'}"
+    longitude = int(longitude)
+    return (f"{abs(longitude):.0f}°{minutes:02.0f}'"
+            f"{'E' if longitude > 0 else 'W'}")
 
 
-def lat_str(lattitude: float) -> str:
-    """Converts lattitude as degree measure into degrees and minutes 
+def lat_str(latitude: float) -> str:
+    """Converts latitude as degree measure into degrees and minutes 
     with direction.
     """
-    minutes = lattitude % 1 * 60
-    return f"{abs(lattitude):.0f}°{minutes:02.0f}'{'N' if lattitude > 0 else 'S'}"
+    minutes = latitude % 1 * 60
+    latitude = int(latitude)
+    return (f"{abs(latitude):.0f}°{minutes:02.0f}'"
+            f"{'N' if latitude > 0 else 'S'}")
+
+
+def speed_str(speed: float, metric=True) -> str:
+    """Converts m/s to km/h, and attaches a label of 'km/h' or 'mph'."""
+    if metric:
+        speed *= 3.6
+        return f"{speed:.1f} km/h"
+    else:
+        return f"{speed} mph"
+
+
+def direction_str(degrees: int) -> str:
+    """Gives a cardinal direction from a degrees measure (east of North)."""
+    if degrees < 11.25:
+        return 'N'
+    elif degrees < 33.75:
+        return 'NNE'
+    elif degrees < 56.25:
+        return 'NE'
+    elif degrees < 78.75:
+        return 'ENE'
+    elif degrees < 101.25:
+        return 'E'
+    elif degrees < 123.75:
+        return 'ESE'
+    elif degrees < 146.25:
+        return 'SE'
+    elif degrees < 168.75:
+        return 'SSE'
+    elif degrees < 191.25:
+        return 'S'
+    elif degrees < 213.75:
+        return 'SSW'
+    elif degrees < 236.25:
+        return 'SW'
+    elif degrees < 258.75:
+        return 'WSW'
+    elif degrees < 281.25:
+        return 'W'
+    elif degrees < 303.75:
+        return 'WNW'
+    elif degrees < 326.25:
+        return 'NW'
+    elif degrees < 348.75:
+        return 'NNW'
+    else:
+        return 'N'
 
 
 def local_time(utc_time: int, timezone_delta: int) -> int:
-    """Converts a UTC timestamp into a local timestamp given the timedelta of the local time"""
+    """Converts a UTC timestamp into a local timestamp given the 
+    timedelta of the local time.
+    """
     local_offset = time.timezone if not time.daylight else time.altzone
+    # Since the API gives the times in the local time for the client,
+    # not the local time for the city in the query
     return utc_time + timezone_delta + local_offset
 
 
@@ -137,5 +214,5 @@ if __name__ == '__main__':
     args = parse_args()
     query_url = build_weather_query(args.city, args.F)
     weather_data = get_weather_data(query_url)
-    display(weather_data, args.F)
+    display(weather_data, not args.F)
     #pp(weather_data)
