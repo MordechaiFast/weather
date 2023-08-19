@@ -1,0 +1,10 @@
+Take optional city name, with default
+Allow F option
+get weather from api
+Weather app should show:
+    city name
+    current temp
+    high and low expeced temperatures
+    overall forcast
+    #amount of precipitation
+    sunrise and sunset times
